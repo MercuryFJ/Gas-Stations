@@ -13,7 +13,6 @@ const resultsElement = document.getElementById("results");
 
 
 // Filters gas stations that are currently open based on their schedule
-
 function getOpenGasStations(stations) {
     // Get current date and time
     const now = new Date();
@@ -260,7 +259,7 @@ async function request(url) {
                                            <p>Town: ${gasStation.Localidad}</p>
                                            <p>Province: ${gasStation.Provincia}</p>
                                            <p>Schedule: ${gasStation.Horario}</p>
-                                           <p>Price: ${gasStation.PrecioProducto}</p>`;
+                                           <p>Price: ${gasStation.PrecioProducto}€</p>`;
             resultsElement.append(gasStationElement);
         });
 
