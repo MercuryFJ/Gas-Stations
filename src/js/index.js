@@ -11,120 +11,41 @@ const fuelTypeSelectElement = document.getElementById("fuelTypeSelect");
 const openNowCheckboxElement = document.getElementById("openNowCheckbox");
 const resultsElement = document.getElementById("results");
 
+// Check if the station is open now
+function isStationInService(schedule) {
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    if (schedule.includes("L-D: 24H")) return true;
+
+    const daysMap = { L: 1, M: 2, X: 3, J: 4, V: 5, S: 6, D: 0 };
+    const hours = schedule.split(";");
+
+    for (const hour of hours) {
+        const [days, timeRange] = hour.split(": ");
+        const [startDay, endDay] = days.split("-").map(d => daysMap[d.trim()]);
+        const [start, end] = timeRange
+            .split("-")
+            .map(t => t.split(":").reduce((h, m) => h * 60 + Number(m)));
+
+        if (
+            ((currentDay >= startDay && currentDay <= endDay) ||
+                (endDay < startDay &&
+                    (currentDay >= startDay || currentDay <= endDay))) &&
+            ((currentTime >= start && currentTime <= end) ||
+                (end < start && (currentTime >= start || currentTime <= end)))
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
 
 // Filters gas stations that are currently open based on their schedule
 function getOpenGasStations(stations) {
-    // Get current date and time
-    const now = new Date();
-    const currentDay = now.getDay(); // 0 (Sunday) to 6 (Saturday)
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-
-    // Convert current time to minutes for easier comparison
-    const currentTimeInMinutes = currentHour * 60 + currentMinute;
-
-
-    // Converts various time formats to minutes
-    function parseTimeToMinutes(timeStr) {
-        // Remove spaces and convert to lowercase
-        timeStr = timeStr.trim().toLowerCase();
-
-        // Handle 24-hour format
-        if (timeStr === '24h') return { start: 0, end: 1440 };
-
-        // Handle formats like "06:00-23:00"
-        const rangeMatch = timeStr.match(/^(\d{1,2}):?(\d{2})?-(\d{1,2}):?(\d{2})?$/);
-        if (rangeMatch) {
-            const startHour = parseInt(rangeMatch[1], 10);
-            const startMinute = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : 0;
-            const endHour = parseInt(rangeMatch[3], 10);
-            const endMinute = rangeMatch[4] ? parseInt(rangeMatch[4], 10) : 0;
-
-            return {
-                start: startHour * 60 + startMinute,
-                end: endHour * 60 + endMinute
-            };
-        }
-
-        // Handle formats without separators: "0600-2300"
-        const noSeparatorMatch = timeStr.match(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/);
-        if (noSeparatorMatch) {
-            const startHour = parseInt(noSeparatorMatch[1], 10);
-            const startMinute = parseInt(noSeparatorMatch[2], 10);
-            const endHour = parseInt(noSeparatorMatch[3], 10);
-            const endMinute = parseInt(noSeparatorMatch[4], 10);
-
-            return {
-                start: startHour * 60 + startMinute,
-                end: endHour * 60 + endMinute
-            };
-        }
-
-        // If format is not recognized, return null
-        return null;
-    }
-
-
-    //Checks if a given day is included in the day pattern
-    function isDayIncluded(dayPattern, currentDay) {
-        const dayMappings = {
-            'l': [1],
-            'm': [2],
-            'x': [3],
-            'j': [4],
-            'v': [5],
-            's': [6],
-            'd': [0],
-            'l-v': [1, 2, 3, 4, 5],
-            'l-d': [0, 1, 2, 3, 4, 5, 6]
-        };
-
-        dayPattern = dayPattern.toLowerCase();
-        const daysToCheck = dayMappings[dayPattern] || [];
-        return daysToCheck.includes(currentDay);
-    }
-
-    // Filter gas stations
-    const openStations = stations.filter(station => {
-        const horario = station.Horario.toLowerCase();
-
-        // Split multiple schedules
-        const schedules = horario.split(';').map(s => s.trim());
-
-        for (let schedule of schedules) {
-            // Separate days and hours
-            const [dayPart, timePart] = schedule.split(':').map(s => s.trim());
-
-            // Check if current day is in the schedule
-            if (isDayIncluded(dayPart, currentDay)) {
-                // Parse hours
-                const timeRange = parseTimeToMinutes(timePart);
-
-                // If time can be parsed, check if it's within the range
-                if (timeRange) {
-                    // Handle schedules within the same day
-                    if (timeRange.start <= timeRange.end) {
-                        if (currentTimeInMinutes >= timeRange.start &&
-                            currentTimeInMinutes <= timeRange.end) {
-                            return true;
-                        }
-                    } else {
-                        // Handle schedules crossing midnight (e.g., 22:00-06:00)
-                        if (currentTimeInMinutes >= timeRange.start ||
-                            currentTimeInMinutes <= timeRange.end) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        return false;
-    });
-
-    return openStations;
+    return stations.filter(station => isStationInService(station.Horario));
 }
-
 
 // Handles the request for gas stations based on current selections
 function handleRequest() {
@@ -135,7 +56,6 @@ function handleRequest() {
         request(PRODUCT_URL);
     }
 }
-
 
 // Requests and populates provinces dropdown
 async function requestProvinces(url) {
@@ -172,7 +92,6 @@ async function requestProvinces(url) {
     }
 }
 
-
 // Requests and populates municipalities dropdown
 async function requestMunicipalities(url) {
     try {
@@ -205,7 +124,6 @@ async function requestMunicipalities(url) {
     }
 }
 
-
 // Requests and populates fuel types dropdown
 async function requestFuelType(url) {
     try {
@@ -230,7 +148,6 @@ async function requestFuelType(url) {
         console.error("Request error:", error.message);
     }
 }
-
 
 // Requests and displays gas stations based on current selections
 async function request(url) {
